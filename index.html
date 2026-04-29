@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>ASC Automação</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+  font-family:Segoe UI,Roboto,Arial,sans-serif;
+  background:#eef2f7;
+  padding:30px
+}
+.container{max-width:1200px;margin:auto}
+.card{
+  background:#fff;
+  border-radius:18px;
+  padding:24px;
+  margin-bottom:24px;
+  box-shadow:0 10px 25px rgba(0,0,0,.08)
+}
+h2,h3{margin-bottom:12px}
+
+label{display:block;margin-top:14px;font-weight:600}
+input,select{
+  width:100%;
+  padding:10px;
+  margin-top:6px;
+  border-radius:12px;
+  border:1px solid #ccc
+}
+input:disabled{background:#f3f4f6}
+
+button{
+  margin-top:14px;
+  padding:10px 18px;
+  border-radius:999px;
+  border:none;
+  background:#1a3c5c;
+  color:#fff;
+  font-weight:600;
+  cursor:pointer
+}
+button:hover{background:#0f2c44}
+
+.btn-secondary{background:#e5e7eb;color:#111}
+.btn-danger{background:#fee2e2;color:#b91c1c}
+
+.phase-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:12px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  margin-top:10px;
+  cursor:pointer
+}
+.phase-item:hover{background:#f9fafb}
+
+.hidden{display:none}
+
+.fab{
+  position:fixed;
+  bottom:30px;
+  right:30px;
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  background:#1a3c5c;
+  color:#fff;
+  font-size:36px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  cursor:pointer
+}
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:none;
+  justify-content:center;
+  align-items:center
+}
+.modal-content{
+  background:#fff;
+  padding:24px;
+  border-radius:18px;
+  width:100%;
+  max-width:500px
+}
+
+.att-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #ddd;
+  margin-top:8px
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- CONTA -->
+<div class="card">
+  <h2>⚙ Conta padrão</h2>
+  <select id="contaSelect">
+    <option value="">Selecione</option>
+    <option value="2">Pós Atendimento (Conta 2)</option>
+    <option value="1">Novos Produtos (Conta 1)</option>
+    <option value="3">Bancos (Conta 3)</option>
+  </select>
+  <button type="button" onclick="salvarConta()">Salvar conta</button>
+</div>
+
+<!-- HOME -->
+<div class="card" id="home">
+  <h2>📂 Fases cadastradas</h2>
+  <div id="listaFases"></div>
+</div>
+
+<!-- EXECUÇÃO -->
+<div class="card hidden" id="exec">
+  <h2 id="tituloFase"></h2>
+
+  <label>Segurado</label>
+  <input id="seg">
+  <label>Telefone</label>
+  <input id="tel">
+  <label>Conta</label>
+  <input id="contaExec" disabled>
+  <label>Matrícula</label>
+  <input id="mat">
+
+  <div id="camposDinamicos"></div>
+
+  <button type="button" onclick="adicionarAtendimento()">Adicionar atendimento</button>
+  <button type="button" onclick="exportarCSV()">Exportar CSV</button>
+  <button type="button" class="btn-secondary" onclick="voltar()">Voltar</button>
+
+  <div id="listaAtendimentos"></div>
+</div>
+</div>
+
+<!-- + -->
+<div class="fab" onclick="abrirCadastro()">+</div>
+
+<!-- MODAL -->
+<div class="modal" id="cadastro" onclick="fecharCadastro()">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h3>Cadastrar Fase</h3>
+
+    <label>Nome da fase (ASC)</label>
+    <input id="nomeFase">
+
+    <label>Novo campo</label>
+    <input id="campoNovo">
+
+    <button type="button" onclick="addCampo()">Adicionar campo</button>
+    <div id="listaCampos"></div>
+
+    <button type="button" onclick="salvarFase()">Salvar</button>
+    <button type="button" class="btn-secondary" onclick="fecharCadastro()">Cancelar</button>
+  </div>
+</div>
+
+<script>
+let fases = JSON.parse(localStorage.getItem("fases")) || [];
+let contaPadrao = JSON.parse(localStorage.getItem("conta_padrao")) || null;
+let camposTemp=[], faseAtiva=null, atendimentos=[];
+
+if(contaPadrao) contaSelect.value = contaPadrao.valor;
+
+function salvarConta(){
+  contaPadrao={
+    valor:contaSelect.value,
+    nome:contaSelect.options[contaSelect.selectedIndex].text
+  };
+  localStorage.setItem("conta_padrao",JSON.stringify(contaPadrao));
+}
+
+function renderFases(){
+  listaFases.innerHTML = fases.length===0
+    ? "<p>Nenhuma fase cadastrada.</p>"
+    : fases.map((f,i)=>`
+      <div class="phase-item" onclick="abrirFase(${i})">
+        <span>${f.nome}</span>
+        <button type="button" class="btn-danger"
+          onclick="event.stopPropagation(); excluirFase(${i})">🗑</button>
+      </div>
+    `).join("");
+}
+renderFases();
+
+function abrirFase(i){
+  faseAtiva=fases[i];
+  atendimentos=[];
+  home.classList.add("hidden");
+  exec.classList.remove("hidden");
+  tituloFase.innerText=faseAtiva.nome;
+  contaExec.value=contaPadrao?.nome || "";
+  camposDinamicos.innerHTML=faseAtiva.campos.map(c=>`
+    <label>${c}</label><input>
+  `).join("");
+  renderAtendimentos();
+}
+
+function voltar(){
+  exec.classList.add("hidden");
+  home.classList.remove("hidden");
+}
+
+function excluirFase(i){
+  if(confirm("Excluir fase?")){
+    fases.splice(i,1);
+    localStorage.setItem("fases",JSON.stringify(fases));
+    renderFases();
+  }
+}
+
+function abrirCadastro(){
+  cadastro.style.display="flex";
+  camposTemp=[];
+  listaCampos.innerHTML="";
+  nomeFase.value="";
+  campoNovo.value="";
+}
+
+function fecharCadastro(){
+  cadastro.style.display="none";
+}
+
+function addCampo(){
+  if(!campoNovo.value)return;
+  camposTemp.push(campoNovo.value);
+  campoNovo.value="";
+  listaCampos.innerHTML=camposTemp.map(c=>`<div>${c}</div>`).join("");
+}
+
+function salvarFase(){
+  fases.push({nome:nomeFase.value,campos:[...camposTemp]});
+  localStorage.setItem("fases",JSON.stringify(fases));
+  fecharCadastro();
+  renderFases();
+}
+
+function adicionarAtendimento(){
+  const extras=[...camposDinamicos.querySelectorAll("input")].map(i=>i.value);
+  atendimentos.push([seg.value,tel.value,contaPadrao.valor,mat.value,...extras]);
+  renderAtendimentos();
+}
+
+function removerAtendimento(i){
+  atendimentos.splice(i,1);
+  renderAtendimentos();
+}
+
+function renderAtendimentos(){
+  listaAtendimentos.innerHTML = atendimentos.map((a,i)=>`
+    <div class="att-item">
+      <span>${a.join(" | ")}</span>
+      <button type="button" class="btn-danger"
+        onclick="removerAtendimento(${i})">🗑</button>
+    </div>
+  `).join("");
+}
+
+function exportarCSV(){
+  let csv=`#FASE=${faseAtiva.nome}\n`;
+  csv+=["Segurado","Telefone","Conta","Matricula",...faseAtiva.campos].join(",")+"\n";
+  csv+=atendimentos.map(a=>a.join(",")).join("\n");
+  const blob=new Blob([csv]);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="asc_input.csv";
+  a.click();
+}
+</script>
+</body>
+</html>
