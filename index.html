@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0059)https://crysbrawn.github.io/P-s-atendimento-todas-as-fases/ -->
+<html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <title>ASC Automação</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -122,29 +122,51 @@ button:hover{background:#0f2c44}
 <!-- HOME -->
 <div class="card" id="home">
   <h2>📂 Fases cadastradas</h2>
-  <div id="listaFases"></div>
+  <div id="listaFases">
+      <div class="phase-item" onclick="abrirFase(0)">
+        <span>SCRIPT ADAS 2 FASE</span>
+        <button type="button" class="btn-danger" onclick="event.stopPropagation(); excluirFase(0)">🗑</button>
+      </div>
+    
+      <div class="phase-item" onclick="abrirFase(1)">
+        <span>AGENDAMENTO COMPLETO (AMANHÃ)</span>
+        <button type="button" class="btn-danger" onclick="event.stopPropagation(); excluirFase(1)">🗑</button>
+      </div>
+    
+      <div class="phase-item" onclick="abrirFase(2)">
+        <span>Ação Maxparceiros</span>
+        <button type="button" class="btn-danger" onclick="event.stopPropagation(); excluirFase(2)">🗑</button>
+      </div>
+    </div>
 </div>
 
 <!-- EXECUÇÃO -->
 <div class="card hidden" id="exec">
-  <h2 id="tituloFase"></h2>
+  <h2 id="tituloFase">Ação Maxparceiros</h2>
 
   <label>Segurado</label>
   <input id="seg">
   <label>Telefone</label>
   <input id="tel">
   <label>Conta</label>
-  <input id="contaExec" disabled>
+  <input id="contaExec" disabled="">
   <label>Matrícula</label>
   <input id="mat">
 
-  <div id="camposDinamicos"></div>
+  <div id="camposDinamicos">
+    <label>Corretor</label><input>
+  </div>
 
   <button type="button" onclick="adicionarAtendimento()">Adicionar atendimento</button>
   <button type="button" onclick="exportarCSV()">Exportar CSV</button>
   <button type="button" class="btn-secondary" onclick="voltar()">Voltar</button>
 
-  <div id="listaAtendimentos"></div>
+  <div id="listaAtendimentos">
+    <div class="att-item">
+      <span>Salgadinho | 13513646675 | 2 | 1354135 | Salgadinho</span>
+      <button type="button" class="btn-danger" onclick="removerAtendimento(0)">🗑</button>
+    </div>
+  </div>
 </div>
 </div>
 
@@ -152,7 +174,7 @@ button:hover{background:#0f2c44}
 <div class="fab" onclick="abrirCadastro()">+</div>
 
 <!-- MODAL -->
-<div class="modal" id="cadastro" onclick="fecharCadastro()">
+<div class="modal" id="cadastro" onclick="fecharCadastro()" style="display: none;">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h3>Cadastrar Fase</h3>
 
@@ -163,12 +185,14 @@ button:hover{background:#0f2c44}
     <input id="campoNovo">
 
     <button type="button" onclick="addCampo()">Adicionar campo</button>
-    <div id="listaCampos"></div>
+    <div id="listaCampos"><div>Corretor</div></div>
 
     <button type="button" onclick="salvarFase()">Salvar</button>
     <button type="button" class="btn-secondary" onclick="fecharCadastro()">Cancelar</button>
   </div>
 </div>
+
+<!-- 🔽 MANTENHA TUDO IGUAL ATÉ renderAtendimentos -->
 
 <script>
 let fases = JSON.parse(localStorage.getItem("fases")) || [];
@@ -184,6 +208,8 @@ function salvarConta(){
   };
   localStorage.setItem("conta_padrao",JSON.stringify(contaPadrao));
 }
+
+/* ========= FASE ========= */
 
 function renderFases(){
   listaFases.innerHTML = fases.length===0
@@ -203,11 +229,14 @@ function abrirFase(i){
   atendimentos=[];
   home.classList.add("hidden");
   exec.classList.remove("hidden");
+
   tituloFase.innerText=faseAtiva.nome;
   contaExec.value=contaPadrao?.nome || "";
+
   camposDinamicos.innerHTML=faseAtiva.campos.map(c=>`
     <label>${c}</label><input>
   `).join("");
+
   renderAtendimentos();
 }
 
@@ -223,6 +252,8 @@ function excluirFase(i){
     renderFases();
   }
 }
+
+/* ========= CADASTRO ========= */
 
 function abrirCadastro(){
   cadastro.style.display="flex";
@@ -250,31 +281,81 @@ function salvarFase(){
   renderFases();
 }
 
+/* ========= ATENDIMENTO ========= */
+
 function adicionarAtendimento(){
   const extras=[...camposDinamicos.querySelectorAll("input")].map(i=>i.value);
-  atendimentos.push([seg.value,tel.value,contaPadrao.valor,mat.value,...extras]);
+
+  atendimentos.push([
+    seg.value,
+    tel.value,
+    contaPadrao.valor,
+    mat.value,
+    ...extras
+  ]);
+
+  limparCampos();
   renderAtendimentos();
 }
+
+function limparCampos(){
+  seg.value="";
+  tel.value="";
+  mat.value="";
+  [...camposDinamicos.querySelectorAll("input")].forEach(i=>i.value="");
+}
+
+/* ========= NOVO: EDITAR ========= */
+
+function editarAtendimento(i){
+  const dados = atendimentos[i];
+
+  // joga de volta para os campos
+  seg.value = dados[0];
+  tel.value = dados[1];
+  mat.value = dados[3];
+
+  const inputsExtras = camposDinamicos.querySelectorAll("input");
+
+  for(let x=0; x<inputsExtras.length; x++){
+    inputsExtras[x].value = dados[4 + x] || "";
+  }
+
+  // remove da lista
+  atendimentos.splice(i,1);
+
+  renderAtendimentos();
+}
+
+/* ========= REMOVER ========= */
 
 function removerAtendimento(i){
   atendimentos.splice(i,1);
   renderAtendimentos();
 }
 
+/* ========= RENDER ========= */
+
 function renderAtendimentos(){
   listaAtendimentos.innerHTML = atendimentos.map((a,i)=>`
     <div class="att-item">
       <span>${a.join(" | ")}</span>
-      <button type="button" class="btn-danger"
-        onclick="removerAtendimento(${i})">🗑</button>
+      <div>
+        <button type="button" onclick="editarAtendimento(${i})">✏️</button>
+        <button type="button" class="btn-danger"
+          onclick="removerAtendimento(${i})">🗑</button>
+      </div>
     </div>
   `).join("");
 }
+
+/* ========= CSV ========= */
 
 function exportarCSV(){
   let csv=`#FASE=${faseAtiva.nome}\n`;
   csv+=["Segurado","Telefone","Conta","Matricula",...faseAtiva.campos].join(",")+"\n";
   csv+=atendimentos.map(a=>a.join(",")).join("\n");
+
   const blob=new Blob([csv]);
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -282,5 +363,6 @@ function exportarCSV(){
   a.click();
 }
 </script>
-</body>
-</html>
+
+
+</body></html>
